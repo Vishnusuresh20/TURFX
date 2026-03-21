@@ -28,8 +28,16 @@ client.on('disconnected', (reason) => {
   isClientReady = false;
 });
 
-// Initialize the bot connection
-client.initialize();
+// Initialize the bot connection safely so Render doesn't crash if Chromium is missing
+try {
+  console.log('Attempting to initialize WhatsApp Puppeteer engine...');
+  client.initialize().catch(err => {
+    console.error('❌ WhatsApp Bot failed to initialize natively in this cloud environment.');
+    console.error('Render Free Tier requires Docker for Chromium dependencies. The rest of the server will continue normally.');
+  });
+} catch (error) {
+  console.error('❌ WhatsApp Bot failed to start:', error);
+}
 
 /**
  * Send a WhatsApp Message
