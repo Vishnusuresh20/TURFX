@@ -1,6 +1,8 @@
 # Dependencies
 node_modules/
 jspm_packages/
+turf-booking-backend/.wwebjs_auth/
+turf-booking-backend/.wwebjs_cache/
 
 # Security Secrets (NEVER UPLOAD THESE)
 .env
