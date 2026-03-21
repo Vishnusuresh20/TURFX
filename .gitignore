@@ -1,0 +1,28 @@
+# Dependencies
+node_modules/
+jspm_packages/
+
+# Security Secrets (NEVER UPLOAD THESE)
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Logs
+logs
+*.log
+npm-debug.log*
+
+# Operating System Files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Build outputs
+/dist
+/build
