@@ -9,7 +9,13 @@ const Booking = () => {
   const { user, slots, fetchAvailableSlots } = useAppContext();
   const navigate = useNavigate();
 
-  const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
+  // Helper to accurately get YYYY-MM-DD in the user's local time zone instead of UTC
+  const getLocalDateString = (dateObj = new Date()) => {
+    const tzOffset = dateObj.getTimezoneOffset() * 60000;
+    return new Date(dateObj.getTime() - tzOffset).toISOString().split('T')[0];
+  };
+
+  const [date, setDate] = useState(getLocalDateString());
   const [selectedSlot, setSelectedSlot] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
 
@@ -42,13 +48,13 @@ const Booking = () => {
   };
 
   const getMinDate = () => {
-    return new Date().toISOString().split('T')[0];
+    return getLocalDateString();
   };
 
   const getMaxDate = () => {
     const d = new Date();
     d.setDate(d.getDate() + 14); // Allow booking 2 weeks in advance
-    return d.toISOString().split('T')[0];
+    return getLocalDateString(d);
   };
 
   if (!user) return null; // Prevent flicker while redirecting
