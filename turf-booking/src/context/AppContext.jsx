@@ -2,7 +2,7 @@ import { createContext, useState, useEffect, useContext, useCallback } from 'rea
 import axios from 'axios';
 
 const AppContext = createContext();
-const API_URL = 'http://localhost:5001/api';
+const API_URL = 'https://turfx-rkan.onrender.com/api';
 
 // Create base template for slots (21 slots: 6 AM to 2 AM)
 const createInitialSlots = () => Array.from({ length: 21 }, (_, i) => {

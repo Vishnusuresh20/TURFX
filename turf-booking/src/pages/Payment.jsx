@@ -47,7 +47,7 @@ const Payment = () => {
       }
 
       // Step 1: Tell Backend to generate a unique Razorpay Order ID for this transaction
-      const orderResponse = await axios.post('http://localhost:5001/api/create-order', {
+      const orderResponse = await axios.post('https://turfx-rkan.onrender.com/api/create-order', {
         amount: slotData.price,
         receipt: `rcpt_${user.id.substring(0, 5)}_${slotData.id}`
       });
@@ -65,7 +65,7 @@ const Payment = () => {
         handler: async function (response) {
           try {
             // Step 3: Send success signature back to backend for verification
-            const verifyCheck = await axios.post("http://localhost:5001/api/verify-payment", {
+            const verifyCheck = await axios.post("https://turfx-rkan.onrender.com/api/verify-payment", {
               razorpay_order_id: response.razorpay_order_id,
               razorpay_payment_id: response.razorpay_payment_id,
               razorpay_signature: response.razorpay_signature,
