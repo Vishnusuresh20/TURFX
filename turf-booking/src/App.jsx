@@ -9,7 +9,10 @@ import Booking from './pages/Booking';
 import Dashboard from './pages/Dashboard';
 import Admin from './pages/Admin';
 import Payment from './pages/Payment';
-
+import Terms from './pages/Terms';
+import Privacy from './pages/Privacy';
+import Refund from './pages/Refund';
+import Contact from './pages/Contact';
 
 function App() {
   return (
@@ -25,6 +28,10 @@ function App() {
               <Route path="/dashboard" element={<Dashboard />} />
               <Route path="/admin" element={<Admin />} />
               <Route path="/payment" element={<Payment />} />
+              <Route path="/terms" element={<Terms />} />
+              <Route path="/privacy" element={<Privacy />} />
+              <Route path="/refund" element={<Refund />} />
+              <Route path="/contact" element={<Contact />} />
             </Routes>
           </main>
           <Footer />
