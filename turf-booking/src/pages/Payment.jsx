@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useAppContext } from '../context/AppContext';
 import { CreditCard, CheckCircle, AlertCircle, Loader2, ShieldCheck } from 'lucide-react';
+import { load } from '@cashfreepayments/cashfree-js';
 import axios from 'axios';
 import './Payment.css';
 
@@ -23,15 +24,42 @@ const Payment = () => {
     }
   }, [user, slotData, navigate]);
 
-  // Dynamically load the Razorpay checkout script
-  const loadRazorpayScript = () => {
-    return new Promise((resolve) => {
-      const script = document.createElement("script");
-      script.src = "https://checkout.razorpay.com/v1/checkout.js";
-      script.onload = () => resolve(true);
-      script.onerror = () => resolve(false);
-      document.body.appendChild(script);
-    });
+  useEffect(() => {
+    // If we land on this page from a Cashfree redirect, verify the payment automatically
+    const urlParams = new URLSearchParams(window.location.search);
+    const order_id = urlParams.get('order_id');
+    
+    if (order_id && user && slotData) {
+      verifyCashfreePayment(order_id);
+    }
+  }, []);
+
+  const verifyCashfreePayment = async (order_id) => {
+    setStatus('processing');
+    try {
+      const verifyCheck = await axios.post("https://turfx-rken.onrender.com/api/verify-payment", {
+        order_id: order_id,
+        userId: user.id || user._id,
+        slotId: slotData.id,
+        date: bookingDate,
+        time: slotData.time,
+        hour: slotData.hour,
+        price: slotData.price,
+        whatsappNumber: phoneNumber
+      });
+
+      if (verifyCheck.data.status === 'success') {
+        setStatus('success');
+        setTimeout(() => navigate('/dashboard'), 3000);
+      } else {
+        setStatus('error');
+        setErrorDetails('Payment verification failed. If money was deducted, it will be refunded.');
+      }
+    } catch (err) {
+      console.error("Verification error:", err);
+      setStatus('error');
+      setErrorDetails(err.response?.data?.message || 'Server error processing payment verification.');
+    }
   };
 
   const handlePayment = async () => {
@@ -39,78 +67,32 @@ const Payment = () => {
     setErrorDetails('');
 
     try {
-      const res = await loadRazorpayScript();
-      if (!res) {
-        setStatus('error');
-        setErrorDetails('Failed to load Razorpay SDK. Check your internet connection.');
-        return;
-      }
+      const cashfree = await load({
+        mode: "production", // Explicitly setting production because you generated PROD keys
+      });
 
-      // Step 1: Tell Backend to generate a unique Razorpay Order ID for this transaction
+      // Step 1: Tell Backend to generate a unique Cashfree Order Token for this transaction
       const orderResponse = await axios.post('https://turfx-rken.onrender.com/api/create-order', {
         amount: slotData.price,
-        receipt: `rcpt_${user.id.substring(0, 5)}_${slotData.id}`
+        customer_id: `cust_${user.id || user._id}`.substring(0, 40),
+        customer_email: user.email,
+        customer_phone: phoneNumber || "9999999999"
       });
 
-      const orderData = orderResponse.data;
+      const paymentSessionId = orderResponse.data.payment_session_id;
 
-      // Step 2: Open Razorpay checkout window with the dynamically provided variables
-      const options = {
-        key: orderData.key_id, // Safely pulled directly from your backend .env file!
-        amount: orderData.amount,
-        currency: orderData.currency,
-        name: "TURF-X",
-        description: `Booking turf slot for ${bookingDate} at ${slotData.time}`,
-        order_id: orderData.id,
-        handler: async function (response) {
-          try {
-            // Step 3: Send success signature back to backend for verification
-            const verifyCheck = await axios.post("https://turfx-rken.onrender.com/api/verify-payment", {
-              razorpay_order_id: response.razorpay_order_id,
-              razorpay_payment_id: response.razorpay_payment_id,
-              razorpay_signature: response.razorpay_signature,
-              userId: user.id || user._id,
-              slotId: slotData.id,
-              date: bookingDate,
-              time: slotData.time,
-              hour: slotData.hour,
-              price: slotData.price,
-              whatsappNumber: phoneNumber
-            });
+      if (!paymentSessionId) {
+        throw new Error("Failed to get payment session ID from Cashfree");
+      }
 
-            if (verifyCheck.data.status === 'success') {
-              // Successfully validated and saved to MongoDB!
-              setStatus('success');
-              setTimeout(() => navigate('/dashboard'), 3000);
-            } else {
-              setStatus('error');
-              setErrorDetails('Payment verification failed. If money was deducted, it will be refunded.');
-            }
-          } catch (err) {
-            console.error("Verification error:", err);
-            setStatus('error');
-            setErrorDetails('Server error processing payment verification.');
-          }
-        },
-        prefill: {
-          name: user.name,
-          email: user.email,
-        },
-        theme: {
-          color: "#10b981", // Turf green
-        },
+      // Step 2: Open Cashfree checkout window
+      const checkoutOptions = {
+        paymentSessionId: paymentSessionId,
+        redirectTarget: "_self", // Redirect back to this page
       };
-
-      const paymentObject = new window.Razorpay(options);
       
-      paymentObject.on('payment.failed', function (response) {
-        setStatus('error');
-        setErrorDetails(response.error.description);
-      });
-
-      paymentObject.open();
-      // Set to idle because Razorpay popup takes over
-      setStatus('idle');
+      setStatus('idle'); // Cashfree UI takes over
+      cashfree.checkout(checkoutOptions);
       
     } catch (err) {
       console.error(err);
@@ -178,7 +160,7 @@ const Payment = () => {
           <div className="payment-notice" style={{marginTop: '2rem', textAlign: 'center'}}>
              <div style={{display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', color: 'var(--text-muted)', marginBottom: '1rem'}}>
                 <ShieldCheck size={20} style={{color: 'var(--primary-green)'}}/>
-                <span>Secure Checkout by Razorpay</span>
+                <span>Secure Checkout by Cashfree</span>
              </div>
 
              <div className="input-group" style={{marginBottom: '1.5rem', textAlign: 'left'}}>

@@ -1,7 +1,7 @@
 const express = require('express');
 const cors = require('cors');
 const dotenv = require('dotenv');
-const Razorpay = require('razorpay');
+const axios = require('axios');
 const crypto = require('crypto');
 
 const connectDB = require('./config/db');
@@ -22,11 +22,8 @@ app.use(express.json());
 app.use('/api/auth', require('./routes/auth'));
 app.use('/api/bookings', require('./routes/bookings'));
 
-// Initialize Razorpay (Requires RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET in .env)
-const razorpay = new Razorpay({
-  key_id: process.env.RAZORPAY_KEY_ID,
-  key_secret: process.env.RAZORPAY_KEY_SECRET,
-});
+// Cashfree configuration variables will be loaded from process.env
+const CASHFREE_BASE_URL = 'https://api.cashfree.com/pg';
 
 // Basic Health Route
 app.get('/api/health', (req, res) => {
@@ -36,30 +33,42 @@ app.get('/api/health', (req, res) => {
 // Create Order API
 app.post('/api/create-order', async (req, res) => {
   try {
-    const { amount, currency = "INR", receipt } = req.body;
+    const { amount, currency = "INR", customer_id, customer_email, customer_phone } = req.body;
     
-    // In a real app, you would verify the amount against the database here (e.g. Turf price = 900)
-    // to prevent malicious users from sending {"amount": 1} from the frontend.
-    
-    const options = {
-      amount: amount * 100, // Razorpay expects amount in standard subunit (paise)
-      currency,
-      receipt
+    // Generate a unique order ID for Cashfree
+    const order_id = `order_${Date.now()}_${Math.random().toString(36).substring(7)}`;
+
+    const payload = {
+      order_amount: amount,
+      order_currency: currency,
+      order_id: order_id,
+      customer_details: {
+        customer_id: customer_id || "cust_guest",
+        customer_email: customer_email || "guest@turfx.com",
+        customer_phone: customer_phone || "9999999999"
+      },
+      order_meta: {
+        // We will tell Cashfree to redirect back to our frontend /payment page with the order_id in the URL
+        return_url: `https://turfx-c.vercel.app/payment?order_id=${order_id}&cf_id={order_id}`
+      }
     };
-    
-    const order = await razorpay.orders.create(options);
-    if (!order) {
-      return res.status(500).send("Error creating order");
-    }
-    
-    // Inject the public key so the frontend never has to guess it
+
+    const response = await axios.post(`${CASHFREE_BASE_URL}/orders`, payload, {
+      headers: {
+        'x-client-id': process.env.CASHFREE_APP_ID,
+        'x-client-secret': process.env.CASHFREE_SECRET_KEY,
+        'x-api-version': '2023-08-01',
+        'Content-Type': 'application/json'
+      }
+    });
+
     res.json({
-      ...order,
-      key_id: process.env.RAZORPAY_KEY_ID
+      order_id: response.data.order_id,
+      payment_session_id: response.data.payment_session_id
     });
   } catch (err) {
-    console.error(err);
-    res.status(500).send("Internal Server Error");
+    console.error("Cashfree Order Error:", err.response?.data || err.message);
+    res.status(500).json({ error: "Internal Server Error", details: err.response?.data });
   }
 });
 
@@ -70,43 +79,44 @@ const { sendWhatsAppMessage } = require('./utils/whatsappBot');
 app.post('/api/verify-payment', async (req, res) => {
   try {
     const { 
-      razorpay_order_id, razorpay_payment_id, razorpay_signature,
+      order_id,
       userId, slotId, date, time, hour, price, whatsappNumber
     } = req.body;
 
-    const sign = razorpay_order_id + "|" + razorpay_payment_id;
-    const expectedSign = crypto
-      .createHmac("sha256", process.env.RAZORPAY_KEY_SECRET)
-      .update(sign.toString())
-      .digest("hex");
+    // Securely ask Cashfree servers directly if this order was actually paid
+    const response = await axios.get(`${CASHFREE_BASE_URL}/orders/${order_id}`, {
+      headers: {
+        'x-client-id': process.env.CASHFREE_APP_ID,
+        'x-client-secret': process.env.CASHFREE_SECRET_KEY,
+        'x-api-version': '2023-08-01'
+      }
+    });
 
-    if (razorpay_signature === expectedSign) {
+    const orderStatus = response.data.order_status;
+
+    if (orderStatus === 'PAID') {
       // Payment Verified successfully!
       // Save the booking to MongoDB
       const newBooking = new Booking({
         user: userId,
-        slotId,
-        date,
-        time,
-        hour,
-        price,
+        slotId, date, time, hour, price,
         status: 'Confirmed',
-        razorpayOrderId: razorpay_order_id,
-        razorpayPaymentId: razorpay_payment_id
+        razorpayOrderId: order_id, // Keeping the same schema field name to avoid breaking the frontend
+        razorpayPaymentId: "cashfree_verified"
       });
       await newBooking.save();
 
       if (whatsappNumber) {
-        const textMsg = `✅ *TURF-X Booking Confirmed!*\n\nHi there!\nYour turf slot is successfully locked in for *${date}* at *${time}*.\n\nBooking ID: ${razorpay_order_id.slice(-6)}\nAmount Paid: ₹${price}\n\nSee you on the pitch! ⚽`;
+        const textMsg = `✅ *TURF-X Booking Confirmed!*\n\nHi there!\nYour turf slot is successfully locked in for *${date}* at *${time}*.\n\nBooking ID: ${order_id.slice(-6)}\nAmount Paid: ₹${price}\n\nSee you on the pitch! ⚽`;
         sendWhatsAppMessage(whatsappNumber, textMsg).catch(e => console.error("WhatsApp Error:", e));
       }
 
       return res.status(200).json({ status: 'success', message: 'Payment verified and slot booked successfully' });
     } else {
-      return res.status(400).json({ status: 'failure', message: 'Invalid signature sent!' });
+      return res.status(400).json({ status: 'failure', message: 'Order is not marked as PAID in Cashfree.' });
     }
   } catch (err) {
-    console.error(err);
+    console.error("Verification Error:", err.response?.data || err.message);
     if (err.code === 11000) {
       return res.status(400).json({ status: 'failure', message: 'This slot is already booked for this date!' });
     }
