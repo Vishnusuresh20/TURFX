@@ -25,7 +25,7 @@ const Home = () => {
             </div>
             
             <div className="price-tag">
-              <span className="price">₹1</span>
+              <span className="price">₹1200</span>
               <span className="per-hour">/ hour</span>
             </div>
           </div>
