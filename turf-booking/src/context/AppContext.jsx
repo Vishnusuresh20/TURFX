@@ -7,16 +7,16 @@ const API_URL = 'https://turfx-rken.onrender.com/api';
 // Create base template for slots (21 slots: 6 AM to 2 AM)
 const createInitialSlots = () => Array.from({ length: 21 }, (_, i) => {
   const hour24 = i + 6;
-  const period = hour24 < 12 || hour24 >= 24 ? 'AM' : 'PM';
-  let hour12 = hour24 % 12;
-  if (hour12 === 0) hour12 = 12;
+  let displayHour = hour24 % 12;
+  if (displayHour === 0) displayHour = 12;
+  const ampm = hour24 >= 12 && hour24 < 24 ? 'PM' : 'AM';
 
   return {
     id: i,
-    time: `${hour12}:00 ${period}`,
+    time: `${displayHour}:00 ${ampm} - ${displayHour === 11 && ampm === 'AM' ? 12 : (displayHour % 12) + 1}:00 ${displayHour === 11 && ampm === 'AM' ? 'PM' : ampm}`,
     hour: hour24,
-    isBooked: false, 
-    price: 1
+    price: 1200, // INR 1200 standard turf fee
+    isBooked: false
   };
 });
 
