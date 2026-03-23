@@ -13,26 +13,42 @@ const Payment = () => {
   
   const [status, setStatus] = useState('idle'); // idle, processing, success, error
   const [errorDetails, setErrorDetails] = useState('');
-  const [phoneNumber, setPhoneNumber] = useState('');
+  
+  // Extract URL parameters immediately
+  const urlParams = new URLSearchParams(window.location.search);
+  const orderIdParam = urlParams.get('order_id');
 
-  const slotData = location.state?.slot;
-  const bookingDate = location.state?.date;
+  // Attempt to load phone from param or localStorage
+  const [phoneNumber, setPhoneNumber] = useState(localStorage.getItem('turfx_pending_phone') || '');
+
+  // Safely restore volatile React Router state if it was wiped by the Cashfree redirect
+  const getSlotData = () => {
+    if (location.state?.slot) return location.state.slot;
+    const stored = localStorage.getItem('turfx_pending_slot');
+    return stored ? JSON.parse(stored) : null;
+  };
+
+  const getBookingDate = () => {
+    if (location.state?.date) return location.state.date;
+    return localStorage.getItem('turfx_pending_date') || null;
+  };
+
+  const slotData = getSlotData();
+  const bookingDate = getBookingDate();
 
   useEffect(() => {
-    if (!user || !slotData) {
+    // Only redirect away if we are missing state AND we aren't currently returning from a payment
+    if (!user || (!slotData && !orderIdParam)) {
       navigate('/book'); 
     }
-  }, [user, slotData, navigate]);
+  }, [user, slotData, orderIdParam, navigate]);
 
   useEffect(() => {
     // If we land on this page from a Cashfree redirect, verify the payment automatically
-    const urlParams = new URLSearchParams(window.location.search);
-    const order_id = urlParams.get('order_id');
-    
-    if (order_id && user && slotData) {
-      verifyCashfreePayment(order_id);
+    if (orderIdParam && user && slotData) {
+      verifyCashfreePayment(orderIdParam);
     }
-  }, []);
+  }, [orderIdParam, user, slotData]);
 
   const verifyCashfreePayment = async (order_id) => {
     setStatus('processing');
@@ -50,6 +66,12 @@ const Payment = () => {
 
       if (verifyCheck.data.status === 'success') {
         setStatus('success');
+        
+        // Clear local storage to prevent duplicate checks
+        localStorage.removeItem('turfx_pending_slot');
+        localStorage.removeItem('turfx_pending_date');
+        localStorage.removeItem('turfx_pending_phone');
+
         setTimeout(() => navigate('/dashboard'), 3000);
       } else {
         setStatus('error');
@@ -65,6 +87,11 @@ const Payment = () => {
   const handlePayment = async () => {
     setStatus('processing');
     setErrorDetails('');
+
+    // Pre-save state to localStorage before the Cashfree redirect wipes React memory!
+    localStorage.setItem('turfx_pending_slot', JSON.stringify(slotData));
+    localStorage.setItem('turfx_pending_date', bookingDate);
+    localStorage.setItem('turfx_pending_phone', phoneNumber);
 
     try {
       const cashfree = await load({
