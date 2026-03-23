@@ -18,14 +18,14 @@ const Home = () => {
               Experience the best artificial grass ground for your next game. 
               Available for football, cricket, and more.
             </p>
-            <div className="hero-actions">
-              <Link to="/book" className="btn-primary btn-lg">
-                Book Your Slot Now <ArrowRight size={20} />
+            <div className="hero-cta">
+              <Link to="/book" className="btn btn-primary">
+                Book Your Slot Now <ArrowRight size={18} />
               </Link>
             </div>
             
             <div className="price-tag">
-              <span className="price">₹1200</span>
+              <span className="price">₹9</span>
               <span className="per-hour">/ hour</span>
             </div>
           </div>

@@ -15,7 +15,7 @@ const createInitialSlots = () => Array.from({ length: 21 }, (_, i) => {
     id: i,
     time: `${displayHour}:00 ${ampm} - ${displayHour === 11 && ampm === 'AM' ? 12 : (displayHour % 12) + 1}:00 ${displayHour === 11 && ampm === 'AM' ? 'PM' : ampm}`,
     hour: hour24,
-    price: 1200, // INR 1200 standard turf fee
+    price: 9, // Set to INR 9 for testing purposes
     isBooked: false
   };
 });
