@@ -33,7 +33,7 @@ TURF-X is a modern, full-stack web application designed for seamless booking of 
 
 ---
 
-## 🚀 How It Works
+## How It Works
 1. **Frontend Architecture:** The user explores `/book` dynamically loaded from the `AppContext.jsx` state manager.
 2. **Order Instantiation:** Pressing checkout triggers the backend Express server `POST /api/create-order` to ping Cashfree.
 3. **Redirection Loop:** The user safely pays through the gateway, then bounces back to `/payment?order_id=xyz`.
