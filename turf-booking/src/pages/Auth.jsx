@@ -174,7 +174,6 @@ const Auth = () => {
                       onChange={handleInputChange}
                     />
                   </div>
-                  {isLogin && <p className="hint-text">Use admin@turfbook.com for Admin View</p>}
                 </div>
 
                 <div className="input-group">

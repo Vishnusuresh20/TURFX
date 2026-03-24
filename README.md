@@ -2,7 +2,7 @@
 
 TURF-X is a modern, full-stack web application designed for seamless booking of premium artificial grass sports turfs. It natively handles real-time calendar reservations, integrated banking gateways, a secure user dashboard, and an administrative control panel.
 
-![Turf-X Banner](https://turfx-c.vercel.app/turf-bg.jpg) 
+![Turf-X Banner](https://images.unsplash.com/photo-1518605368461-1ee12522ce22?q=80&w=2000&auto=format&fit=crop) 
 
 ## 🌐 Live Demo
 **Production Preview:** [https://turfx-c.vercel.app](https://turfx-c.vercel.app)
